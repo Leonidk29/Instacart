@@ -1,7 +1,9 @@
 # Instacart
-https://www.kaggle.com/c/instacart-market-basket-analysis#description
+Welcome to the Instacart wiki!
 
 
-Goal 1: Build a model to predict which previously purchased products will be in a user’s next order.
+[Bussiness understanding](https://github.com/Leonidk29/Instacart/wiki/Business-understanding)
 
-Goal 2: Get in the top 500.
+[Data understanding](https://github.com/Leonidk29/Instacart/wiki/Data-understanding)
+
+[Project planning](https://github.com/Leonidk29/Instacart/wiki/Project-planning)
