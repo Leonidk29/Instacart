@@ -1,0 +1,64 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(data.table)
+library(dplyr)
+aisle = fread("data/aisles.csv")
+department = fread("data/departments.csv")
+products = fread("data/products.csv")
+products
+prior = fread("data/order_products__prior.csv")
+prior
+
+train = fread("data/order_products__train.csv")
+train
+
+order = fread("data/orders.csv")
+order
+
+```
+
+
+
+Most reordered item by count
+```{r}
+product_train=merge(products,train)
+grouped_data = group_by(product_train, product_name) %>% filter(reordered==1)
+mostPop = summarise(grouped_data,
+          count = n())  %>% arrange(desc(count))
+mostPop
+
+
+
+mostPop[which.max(mostPop$count),]
+
+```
+
+
+Most reordered item normalised
+```{r}
+helper = product_train %>% group_by(product_name) %>% mutate(total=length(product_name)) %>% filter(reordered==1)
+grouped_data = group_by(helper, product_name,total)
+
+helper$total
+which.min(helper$total)
+
+helper[71,]
+helper[helper$product_id==24852,]
+helper %>% arrange(desc(count))
+products[product_name=="Banana"]
+
+normalised = summarise(grouped_data, count=length(product_name) ) %>%
+   mutate(normalised = count / total) %>% arrange(desc(normalised))
+
+#Väga palju on selliseid kus on total väike ja count väike siis norm on 100% peaks kuidagi lõikama välja
+normalised %>% filter(count>10)
+```
+
