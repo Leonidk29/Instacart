@@ -2,7 +2,7 @@
 title: "R Notebook"
 output: html_notebook
 ---
-
+Preparing data
 ```{r}
 library(data.table)
 library(dplyr)
@@ -130,7 +130,10 @@ nrow(data)
 rm(ordert, prd, users)
 gc()
 
+```
 
+Prepare train / test datasets (execute either this or or the chunk below)
+```{r}
 # Train / Test datasets ---------------------------------------------------
 train <- as.data.frame(data[data$eval_set == "train",])
 train$eval_set <- NULL
@@ -144,11 +147,41 @@ test$eval_set <- NULL
 test$user_id <- NULL
 test$reordered <- NULL
 
+train <- train %>% sample_frac(0.1)
+
 rm(data)
 gc()
+```
 
+Prepare train / test datasets for testing model
+```{r}
+# Train / Test datasets ---------------------------------------------------
+train_large <- as.data.frame(data[data$eval_set == "train",])
 
-# Model -------------------------------------------------------------------
+subdata <- train_large %>% sample_frac(0.1)
+smp_size <- floor(0.75 * nrow(subdata))
+set.seed(123)
+train_ind <- sample(seq_len(nrow(subdata)), size = smp_size)
+
+train <- subdata[train_ind, ]
+test <- subdata[-train_ind, ]
+
+train$eval_set <- NULL
+train$user_id <- NULL
+train$product_id <- NULL
+train$order_id <- NULL
+train$reordered[is.na(train$reordered)] <- 0
+
+test$eval_set <- NULL
+test$user_id <- NULL
+test$reordered <- NULL
+
+rm(data)
+gc()
+```
+
+Train model
+```{r}
 library(xgboost)
 
 params <- list(
@@ -164,22 +197,23 @@ params <- list(
   "lambda"              = 10
 )
 
-subtrain <- train %>% sample_frac(0.1)
-X <- xgb.DMatrix(as.matrix(subtrain %>% select(-reordered)), label = subtrain$reordered)
+X <- xgb.DMatrix(as.matrix(train %>% select(-reordered)), label = train$reordered)
 model <- xgboost(data = X, params = params, nrounds = 80)
 
 importance <- xgb.importance(colnames(X), model = model)
 xgb.ggplot.importance(importance)
-
-rm(X, importance, subtrain)
+print(importance)
+rm(X, importance, train_large)
 gc()
 
+```
 
+```{r}
 # Apply model -------------------------------------------------------------
 X <- xgb.DMatrix(as.matrix(test %>% select(-order_id, -product_id)))
 test$reordered <- predict(model, X)
 
-test$reordered <- (test$reordered > 0.21) * 1
+test$reordered <- (test$reordered > 0.15) * 1
 
 submission <- test %>%
   filter(reordered == 1) %>%
@@ -194,5 +228,61 @@ missing <- data.frame(
 )
 
 submission <- submission %>% bind_rows(missing) %>% arrange(order_id)
+
+rm(missing)
+gc()
+```
+
+Write results to file
+```{r}
 write.csv(submission, file = "submit.csv", row.names = F)
 ```
+
+Find F1 score
+```{r}
+# Reading in the files
+orders <- fread('data/orders.csv')
+order_product_train <- fread('data/order_products__train.csv')
+
+# Filtering orders on only "train"
+train_allorders <- subset(orders,eval_set=="train",select=c("order_id"))
+
+# Getting the actual reorders for "train" orders
+train_reordered <- order_product_train %>%  filter(reordered == 1) %>%
+                            group_by(order_id) %>% summarise(products=paste(product_id,collapse=" ")) 
+
+# Merging with all "train" orders to get empty reordered orders
+train_ground_truth <- merge(train_allorders,train_reordered, all.x=T,by="order_id")
+train_ground_truth$products[is.na(train_ground_truth$products)] <- 'None'
+
+rm(train_allorders,train_reordered)
+
+# Function to get F1 Score on Train
+get_f1_train <- function(pred){
+  act <- subset(train_ground_truth, order_id %in% pred$order_id )
+  act$products <- trimws(act$products)
+  pred$products <- trimws(pred$products)
+  temp <- merge(act,pred)
+  print(head(act, 20))
+  print(head(pred, 20))
+  temp$n_act <- lapply(strsplit(temp$products.x," "),length)
+  temp$n_pred <- lapply(strsplit(temp$products.y," "),length)
+  temp$comb <- paste(temp$products.x,temp$products.y,sep=" ")
+  temp$n_common <- lapply(strsplit(temp$comb,split=" "), function(x)sum(duplicated(x)) )
+ 
+  temp$precision <- as.numeric(temp$n_common)/as.numeric(temp$n_pred)
+  temp$recall <- as.numeric(temp$n_common)/as.numeric(temp$n_act)
+  temp$f1 <- ifelse(temp$precision + temp$recall >0, 2 * temp$precision * temp$recall / (temp$precision + temp$recall),0)
+  return(mean(temp$f1))
+} 
+```
+```{r}
+# Testing the function 
+pred <- submission
+
+ptm <- proc.time()
+    res <- get_f1_train(pred)
+proc.time() - ptm
+res
+```
+
