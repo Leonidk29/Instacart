@@ -48,7 +48,9 @@ prd <- orders_products %>%
     prod_orders = n(),
     prod_reorders = sum(reordered),
     prod_first_orders = sum(product_time == 1),
-    prod_second_orders = sum(product_time == 2)
+    prod_second_orders = sum(product_time == 2),
+    prod_avg_dow = mean(order_dow),
+    prod_avg_hour_of_day = mean(order_hour_of_day)
   )
 
 prd$prod_reorder_probability <- prd$prod_second_orders / prd$prod_first_orders
@@ -67,7 +69,9 @@ users <- orders %>%
   summarise(
     user_orders = max(order_number),
     user_period = sum(days_since_prior_order, na.rm = T),
-    user_mean_days_since_prior = mean(days_since_prior_order, na.rm = T)
+    user_mean_days_since_prior = mean(days_since_prior_order, na.rm = T),
+    user_avg_dow = mean(order_dow),
+    user_avg_hour_of_day = mean(order_hour_of_day)
   )
 
 us <- orders_products %>%
@@ -99,7 +103,9 @@ data <- orders_products %>%
     up_orders = n(),
     up_first_order = min(order_number),
     up_last_order = max(order_number),
-    up_average_cart_position = mean(add_to_cart_order))
+    up_average_cart_position = mean(add_to_cart_order),
+    up_avg_dow = mean(order_dow),
+    up_avg_hour_of_day = mean(order_hour_of_day))
 
 rm(orders_products, orders)
 
@@ -114,6 +120,12 @@ data$up_order_rate_since_first_order <- data$up_orders / (data$user_orders - dat
 data <- data %>% 
   left_join(ordert %>% select(user_id, product_id, reordered), 
             by = c("user_id", "product_id"))
+
+# Get rid of least influencial features
+#data <- subset(data, select=-c(prod_reorder_ratio, up_avg_dow, up_avg_hour_of_day, user_orders))
+
+head(data, 20)
+nrow(data)
 
 rm(ordert, prd, users)
 gc()
