@@ -26,14 +26,14 @@ products$product_name <- as.factor(products$product_name)
 
 products <- products %>% 
   inner_join(aisles) %>% inner_join(departments) %>%
-  select(-aisle, -department)
+  select(-aisle_id, -department_id)
 rm(aisles, departments)
 
 ordert$user_id <- orders$user_id[match(ordert$order_id, orders$order_id)]
 
 orders_products <- orders %>% inner_join(orderp, by = "order_id")
 
-orders_products <- orders_products %>% left_join(products, by = "product_id")
+#orders_products <- orders_products %>% left_join(products, by = "product_id")
 
 head(products)
 head(orders_products)
@@ -55,8 +55,8 @@ prd <- orders_products %>%
     prod_reorders = sum(reordered),
     prod_first_orders = sum(product_time == 1),
     prod_second_orders = sum(product_time == 2),
-    prod_avg_dow = mean(order_dow),
-    prod_avg_hour_of_day = mean(order_hour_of_day)
+    prod_avg_dow = mean(order_dow)
+    #prod_avg_hour_of_day = mean(order_hour_of_day)
   )
 
 prd$prod_reorder_probability <- prd$prod_second_orders / prd$prod_first_orders
@@ -75,9 +75,9 @@ users <- orders %>%
   summarise(
     user_orders = max(order_number),
     user_period = sum(days_since_prior_order, na.rm = T),
-    user_mean_days_since_prior = mean(days_since_prior_order, na.rm = T),
-    user_avg_dow = mean(order_dow),
-    user_avg_hour_of_day = mean(order_hour_of_day)
+    user_mean_days_since_prior = mean(days_since_prior_order, na.rm = T)
+    #user_avg_dow = mean(order_dow),
+    #user_avg_hour_of_day = mean(order_hour_of_day)
   )
 
 us <- orders_products %>%
@@ -85,9 +85,9 @@ us <- orders_products %>%
   summarise(
     user_total_products = n(),
     user_reorder_ratio = sum(reordered == 1) / sum(order_number > 1),
-    user_distinct_products = n_distinct(product_id),
-    user_distinct_aisles = n_distinct(aisle_id),
-    user_distinct_departments = n_distinct(department_id)
+    user_distinct_products = n_distinct(product_id)
+    #user_distinct_aisles = n_distinct(aisle_id),
+    #user_distinct_departments = n_distinct(department_id)
   )
 
 users <- users %>% inner_join(us)
@@ -111,9 +111,9 @@ data <- orders_products %>%
     up_orders = n(),
     up_first_order = min(order_number),
     up_last_order = max(order_number),
-    up_average_cart_position = mean(add_to_cart_order),
-    up_avg_dow = mean(order_dow),
-    up_avg_hour_of_day = mean(order_hour_of_day))
+    up_average_cart_position = mean(add_to_cart_order))
+    #up_avg_dow = mean(order_dow),
+    #up_avg_hour_of_day = mean(order_hour_of_day))
 
 rm(orders_products, orders)
 
@@ -155,7 +155,7 @@ test$eval_set <- NULL
 test$user_id <- NULL
 test$reordered <- NULL
 
-train <- train %>% sample_frac(0.1)
+#train <- train %>% sample_frac(0.1)
 rm(data)
 gc()
 ```
@@ -205,7 +205,9 @@ params <- list(
 )
 
 X <- xgb.DMatrix(as.matrix(train %>% select(-reordered)), label = train$reordered)
-model <- xgboost(data = X, params = params, nrounds = 120)
+model = xgb.cv(params, X, 3000,nfold=4,metrics={'auc'}, seed = 0) #Found that 181 rounds gave the lowest test-logloss
+model
+#model <- xgboost(data = X, params = params, nrounds = 181)
 
 importance <- xgb.importance(colnames(X), model = model)
 xgb.ggplot.importance(importance)
