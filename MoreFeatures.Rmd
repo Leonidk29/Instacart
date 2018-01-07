@@ -129,9 +129,6 @@ data <- data %>%
   left_join(ordert %>% select(user_id, product_id, reordered), 
             by = c("user_id", "product_id"))
 
-# Get rid of least influencial features
-#data <- subset(data, select=-c(prod_reorder_ratio, up_avg_dow, up_avg_hour_of_day, user_orders))
-
 head(data, 20)
 nrow(data)
 
@@ -155,7 +152,6 @@ test$eval_set <- NULL
 test$user_id <- NULL
 test$reordered <- NULL
 
-train <- train %>% sample_frac(0.1)
 rm(data)
 gc()
 ```
@@ -206,7 +202,7 @@ params <- list(
 )
 
 X <- xgb.DMatrix(as.matrix(train %>% select(-reordered)), label = train$reordered)
-model <- xgboost(data = X, params = params, nrounds = 10)
+model <- xgboost(data = X, params = params, nrounds = 181)
 
 importance <- xgb.importance(colnames(X), model = model)
 xgb.ggplot.importance(importance)
@@ -301,34 +297,37 @@ library(ggplot2)
 
 
 #Importance#1
+svg(filename="importance.svg")
 ggplot(importance, aes(x=reorder(Feature,Importance), y=Importance))+
   geom_bar(stat = "identity", aes(fill = Importance), width=0.9, position = position_stack(reverse = TRUE))+
   coord_flip() +
-  theme_minimal() + theme(legend.position="none") + ggtitle("Features Importance") +
+  theme_minimal() + theme(legend.position="none") + ggtitle("Feature Importance") +
   xlab("Feature") + ylab("Importance") +  scale_fill_gradient(low="yellow", high="red") +
   theme(panel.border = element_rect(colour = "black", fill=NA, size=0)) +scale_y_continuous(expand = c(0,0))
 #Cover#2
+svg(filename="cover.svg")
 ggplot(importance, aes(x=reorder(Feature,Cover), y=Cover))+
   geom_bar(stat = "identity", aes(fill = Cover), position = position_stack(reverse = TRUE))+
   coord_flip() +
-  theme_minimal() + theme(legend.position="none") + ggtitle("Features Cover") +
+  theme_minimal() + theme(legend.position="none") + ggtitle("Feature Cover") +
   xlab("Feature") + ylab("Cover") +  scale_fill_gradient(low="yellow", high="red") +
   theme(panel.border = element_rect(colour = "black", fill=NA, size=0)) +scale_y_continuous(expand = c(0,0))
 
 
 #Frequency#3
+svg(filename="frequency.svg")
 ggplot(importance, aes(x=reorder(Feature,Frequency), y=Frequency))+
   geom_bar(stat = "identity", aes(fill = Frequency), position = position_stack(reverse = TRUE))+
   coord_flip() +
-  theme_minimal() + theme(legend.position="none") + ggtitle("Features Frequency") +
+  theme_minimal() + theme(legend.position="none") + ggtitle("Feature Frequency") +
   xlab("Feature") + ylab("Frequency") +  scale_fill_gradient(low="yellow", high="red") +
   theme(panel.border = element_rect(colour = "black", fill=NA, size=0)) +scale_y_continuous(expand = c(0,0))
 ```
 
 
 ```{r}
-library(RColorBrewer)
-library(tm)
+#library(RColorBrewer)
+#(tm)
 library(treemap)
 
 
@@ -348,7 +347,7 @@ tmp2<-orderp %>%
   left_join(tmp, by = c("department_id", "aisle_id")) %>% 
   mutate(onesize = 1)
 
-
+svg(filename="tree.svg")
 treemap(tmp2,index=c("department","aisle"),vSize="sumcount",title="Sales of aisles in departments",palette="Set1",border.col="#FFFFFF")
 ```
 
