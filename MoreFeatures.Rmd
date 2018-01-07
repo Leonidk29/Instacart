@@ -155,7 +155,7 @@ test$eval_set <- NULL
 test$user_id <- NULL
 test$reordered <- NULL
 
-#train <- train %>% sample_frac(0.1)
+train <- train %>% sample_frac(0.1)
 rm(data)
 gc()
 ```
@@ -206,12 +206,12 @@ params <- list(
 )
 
 X <- xgb.DMatrix(as.matrix(train %>% select(-reordered)), label = train$reordered)
-model <- xgboost(data = X, params = params, nrounds = 181)
+model <- xgboost(data = X, params = params, nrounds = 10)
 
 importance <- xgb.importance(colnames(X), model = model)
 xgb.ggplot.importance(importance)
 print(importance)
-rm(X, importance, train_large)
+rm(X, train_large)
 gc()
 
 ```
@@ -292,5 +292,63 @@ ptm <- proc.time()
     res <- get_f1_train(pred)
 proc.time() - ptm
 res
+```
+
+```{r}
+library(ggthemes)
+library(ggplot2)
+
+
+
+#Importance#1
+ggplot(importance, aes(x=reorder(Feature,Importance), y=Importance))+
+  geom_bar(stat = "identity", aes(fill = Importance), width=0.9, position = position_stack(reverse = TRUE))+
+  coord_flip() +
+  theme_minimal() + theme(legend.position="none") + ggtitle("Features Importance") +
+  xlab("Feature") + ylab("Importance") +  scale_fill_gradient(low="yellow", high="red") +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=0)) +scale_y_continuous(expand = c(0,0))
+#Cover#2
+ggplot(importance, aes(x=reorder(Feature,Cover), y=Cover))+
+  geom_bar(stat = "identity", aes(fill = Cover), position = position_stack(reverse = TRUE))+
+  coord_flip() +
+  theme_minimal() + theme(legend.position="none") + ggtitle("Features Cover") +
+  xlab("Feature") + ylab("Cover") +  scale_fill_gradient(low="yellow", high="red") +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=0)) +scale_y_continuous(expand = c(0,0))
+
+
+#Frequency#3
+ggplot(importance, aes(x=reorder(Feature,Frequency), y=Frequency))+
+  geom_bar(stat = "identity", aes(fill = Frequency), position = position_stack(reverse = TRUE))+
+  coord_flip() +
+  theme_minimal() + theme(legend.position="none") + ggtitle("Features Frequency") +
+  xlab("Feature") + ylab("Frequency") +  scale_fill_gradient(low="yellow", high="red") +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=0)) +scale_y_continuous(expand = c(0,0))
+```
+
+
+```{r}
+library(RColorBrewer)
+library(tm)
+library(treemap)
+
+
+
+
+tmp <- products %>% group_by(department_id, aisle_id) %>% summarize(n=n())
+tmp <- tmp %>% left_join(departments,by="department_id")
+tmp <- tmp %>% left_join(aisles,by="aisle_id")
+
+tmp2<-orderp %>% 
+  group_by(product_id) %>% 
+  summarize(count=n()) %>% 
+  left_join(products,by="product_id") %>% 
+  ungroup() %>% 
+  group_by(department_id,aisle_id) %>% 
+  summarize(sumcount = sum(count)) %>% 
+  left_join(tmp, by = c("department_id", "aisle_id")) %>% 
+  mutate(onesize = 1)
+
+
+treemap(tmp2,index=c("department","aisle"),vSize="sumcount",title="Sales of aisles in departments",palette="Set1",border.col="#FFFFFF")
 ```
 
