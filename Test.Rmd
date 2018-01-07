@@ -9,6 +9,8 @@ library(dplyr)
 library(tidyr)
 
 
+
+
 # Load Data ---------------------------------------------------------------
 aisles <- fread("data/aisles.csv")
 departments <- fread("data/departments.csv")
@@ -155,29 +157,29 @@ gc()
 
 Prepare train / test datasets for testing model
 ```{r}
-# Train / Test datasets ---------------------------------------------------
-train_large <- as.data.frame(data[data$eval_set == "train",])
-
-subdata <- train_large %>% sample_frac(0.1)
-smp_size <- floor(0.75 * nrow(subdata))
-set.seed(123)
-train_ind <- sample(seq_len(nrow(subdata)), size = smp_size)
-
-train <- subdata[train_ind, ]
-test <- subdata[-train_ind, ]
-
-train$eval_set <- NULL
-train$user_id <- NULL
-train$product_id <- NULL
-train$order_id <- NULL
-train$reordered[is.na(train$reordered)] <- 0
-
-test$eval_set <- NULL
-test$user_id <- NULL
-test$reordered <- NULL
-
-rm(data)
-gc()
+# # Train / Test datasets ---------------------------------------------------
+# train_large <- as.data.frame(data[data$eval_set == "train",])
+# 
+# subdata <- train_large %>% sample_frac(0.1)
+# smp_size <- floor(0.75 * nrow(subdata))
+# set.seed(123)
+# train_ind <- sample(seq_len(nrow(subdata)), size = smp_size)
+# 
+# train <- subdata[train_ind, ]
+# test <- subdata[-train_ind, ]
+# 
+# train$eval_set <- NULL
+# train$user_id <- NULL
+# train$product_id <- NULL
+# train$order_id <- NULL
+# train$reordered[is.na(train$reordered)] <- 0
+# 
+# test$eval_set <- NULL
+# test$user_id <- NULL
+# test$reordered <- NULL
+# 
+# rm(data)
+# gc()
 ```
 
 Train model
@@ -203,7 +205,7 @@ model <- xgboost(data = X, params = params, nrounds = 80)
 importance <- xgb.importance(colnames(X), model = model)
 xgb.ggplot.importance(importance)
 print(importance)
-rm(X, importance, train_large)
+#rm(X, importance, train_large)
 gc()
 
 ```
@@ -281,8 +283,92 @@ get_f1_train <- function(pred){
 pred <- submission
 
 ptm <- proc.time()
-    res <- get_f1_train(pred)
+res <- get_f1_train(pred)
 proc.time() - ptm
 res
 ```
+
+
+
+Visualise
+```{r}
+
+
+library(ggthemes)
+library(ggplot2)
+
+importance <- xgb.importance(colnames(X), model = model)
+xgb.ggplot.importance(importance) + theme_bw() +theme(axis.text = element_text(size = 12))
+print(importance)
+str(importance)
+
+#Importance#1
+ggplot(importance, aes(x=reorder(Feature,Importance), y=Importance))+
+  geom_bar(stat = "identity", aes(fill = Importance), width=0.9, position = position_stack(reverse = TRUE))+
+  coord_flip() +
+  theme_minimal() + theme(legend.position="none") + ggtitle("Features Importance") +
+  xlab("Feature") + ylab("Importance") +  scale_fill_gradient(low="yellow", high="red") +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=0)) +scale_y_continuous(expand = c(0,0))
+#Cover#2
+ggplot(importance, aes(x=reorder(Feature,Cover), y=Cover))+
+  geom_bar(stat = "identity", aes(fill = Cover), position = position_stack(reverse = TRUE))+
+  coord_flip() +
+  theme_minimal() + theme(legend.position="none") + ggtitle("Features Cover") +
+  xlab("Feature") + ylab("Cover") +  scale_fill_gradient(low="yellow", high="red") +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=0)) +scale_y_continuous(expand = c(0,0))
+
+
+#Frequency#3
+ggplot(importance, aes(x=reorder(Feature,Frequency), y=Frequency))+
+  geom_bar(stat = "identity", aes(fill = Frequency), position = position_stack(reverse = TRUE))+
+  coord_flip() +
+  theme_minimal() + theme(legend.position="none") + ggtitle("Features Frequency") +
+  xlab("Feature") + ylab("Frequency") +  scale_fill_gradient(low="yellow", high="red") +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=0)) +scale_y_continuous(expand = c(0,0))
+```
+
+#Treemap#4
+```{r}
+
+install.packages("wordcloud")
+install.packages("RColorBrewer")
+install.packages("tm")
+install.packages("treemap")
+library(RColorBrewer)
+library(wordcloud)
+library(tm)
+library(treemap)
+
+wordcloud(words = normalised$product_name, min.freq = 0,
+          max.words=10, random.order=FALSE,
+          colors=brewer.pal(10, "Dark2"))
+
+
+tmp <- products %>% group_by(department_id, aisle_id) %>% summarize(n=n())
+tmp <- tmp %>% left_join(departments,by="department_id")
+tmp <- tmp %>% left_join(aisles,by="aisle_id")
+
+tmp2<-orderp %>% 
+  group_by(product_id) %>% 
+  summarize(count=n()) %>% 
+  left_join(products,by="product_id") %>% 
+  ungroup() %>% 
+  group_by(department_id,aisle_id) %>% 
+  summarize(sumcount = sum(count)) %>% 
+  left_join(tmp, by = c("department_id", "aisle_id")) %>% 
+  mutate(onesize = 1)
+
+
+treemap(tmp2,index=c("department","aisle"),vSize="sumcount",title="Sales of aisles in departments",palette="Set1",border.col="#FFFFFF")
+
+```
+
+
+
+
+
+
+
+
+
 
