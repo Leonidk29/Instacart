@@ -155,7 +155,7 @@ test$eval_set <- NULL
 test$user_id <- NULL
 test$reordered <- NULL
 
-train <- train %>% sample_frac(0.1)
+#train <- train %>% sample_frac(0.1)
 rm(data)
 gc()
 ```
@@ -201,11 +201,12 @@ params <- list(
   "subsample"           = 0.76,
   "colsample_bytree"    = 0.95,
   "alpha"               = 2e-05,
-  "lambda"              = 10
+  "lambda"              = 10,
+  "tree_method"         = "exact"
 )
 
 X <- xgb.DMatrix(as.matrix(train %>% select(-reordered)), label = train$reordered)
-model <- xgboost(data = X, params = params, nrounds = 120)
+model <- xgboost(data = X, params = params, nrounds = 181)
 
 importance <- xgb.importance(colnames(X), model = model)
 xgb.ggplot.importance(importance)
